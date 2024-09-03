@@ -29,14 +29,24 @@ function UploadFile({ setLoading }: UploadFileProps) {
           'Content-Type': 'application/octet-stream'
         }
       })
-      console.log(res.data.alreadyCertified);
+
+      console.log(res.data);
+
+      let toastMsg = "";
       const resObject = res.data;
-      const txDigest = resObject.alreadyCertified.event.txDigest;
-      await Clipboard.copy(txDigest);
+      if (resObject.newlyCreated) {
+        toastMsg = "Blob object id copied to clipboard";
+        const blobObjectId = resObject.newlyCreated.blobObject.id;
+        await Clipboard.copy(blobObjectId);
+      } else {
+        const txDigest = resObject.alreadyCertified.event.txDigest;
+        toastMsg = "Transaction Digest copied to clipboard";
+        await Clipboard.copy(txDigest);
+      }
 
       toast.style = Toast.Style.Success;
       toast.title = "File Uploaded!";
-      toast.message = String("Transaction Digest copied to clipboard");
+      toast.message = String(toastMsg);
       setLoading(false);
     } catch (error) {
       toast.style = Toast.Style.Failure;

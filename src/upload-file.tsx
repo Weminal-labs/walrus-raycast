@@ -86,7 +86,7 @@ export default function Command() {
   };
 
   if (loading) {
-    return <Detail markdown="![Loading](./assets/video_res.gif)" />;
+    return <Detail markdown="![Loading](video_res.gif)" />;
   }
 
   if (uploadedData) {

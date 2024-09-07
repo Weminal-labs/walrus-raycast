@@ -90,7 +90,7 @@ export default function Command() {
   }, [])
 
   const filteredBlobObjects = blobObjects.filter((blobObject: BlobObject) =>
-    blobObject.data.content.fields.blob_id.toLowerCase().includes(searchText.toLowerCase())
+    u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id)).toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (

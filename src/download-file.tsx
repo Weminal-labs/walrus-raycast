@@ -9,7 +9,7 @@ interface DownloadFileProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function DownloadFile({ setLoading }: DownloadFileProps) {
+export function DownloadFile({ setLoading }: DownloadFileProps) {
   async function handleSubmit(values: {
     filename: string;
     blobId: string;

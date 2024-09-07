@@ -18,11 +18,17 @@
       "subtitle": "Walrus",
       "description": "",
       "mode": "view"
-    }
-    ,
+    },
     {
       "name": "download-file",
       "title": "Download File",
+      "subtitle": "Walrus",
+      "description": "",
+      "mode": "view"
+    },
+    {
+      "name": "list-blob-objects",
+      "title": "List Blob Objects",
       "subtitle": "Walrus",
       "description": "",
       "mode": "view"

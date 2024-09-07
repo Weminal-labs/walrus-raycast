@@ -86,7 +86,7 @@ export default function Command() {
   };
 
   if (loading) {
-    return <Detail markdown={`![Loading](/Users/harryphan/Documents/suidev/walrus-raycast/assets/video_res.gif)`} />;
+    return <Detail markdown="![Loading](./assets/video_res.gif)" />;
   }
 
   if (uploadedData) {

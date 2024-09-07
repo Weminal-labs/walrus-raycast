@@ -2,6 +2,7 @@ import { List, ActionPanel, Action, showToast, Toast, Form } from "@raycast/api"
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { DownloadFile } from "./download-file";
+import { u256ToBlobId } from "./utils";
 
 interface BlobObject {
   data: {
@@ -107,15 +108,15 @@ export default function Command() {
         <List.Item
           id={blobObject.data.content.fields.blob_id}
           key={blobObject.data.content.fields.blob_id}
-          title={blobObject.data.content.fields.blob_id}
+          title={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}
           icon={""}
           detail={
             <List.Item.Detail
-              markdown={`![${blobObject.data.content.fields.blob_id}]()`}
+              markdown={`![${u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}]()`}
               metadata={
                 <List.Item.Detail.Metadata>
                   <List.Item.Detail.Metadata.Label title="Sui Object ID" text={blobObject.data.content.fields.id.id} />
-                  <List.Item.Detail.Metadata.Label title="Blob ID" text={blobObject.data.content.fields.blob_id} />
+                  <List.Item.Detail.Metadata.Label title="Blob ID" text={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))} />
                   <List.Item.Detail.Metadata.Label title="Certified epoch" text={blobObject.data.content.fields.certified_epoch} />
                   <List.Item.Detail.Metadata.Label title="Size" text={blobObject.data.content.fields.size} />
                   <List.Item.Detail.Metadata.Label title="Stored Epoch" text={blobObject.data.content.fields.stored_epoch} />
@@ -137,19 +138,20 @@ export default function Command() {
                   </List>
                   {!loading && (
                     <Form
-                    actions={
-                      <ActionPanel>
-                        <DownloadFile setLoading={setLoading} />
-                      </ActionPanel>
-                    }
-                  >
-                    <Form.Description text="Download a file from Walrus!" />
-                    <Form.TextField
-                      id="blobId" title="Blob ID" placeholder="Enter the Blob ID" defaultValue={selectedBlobObject?.data.content.fields.blob_id} />
-                    <Form.FilePicker title="Folder" canChooseFiles={false} canChooseDirectories={true} id="folder" allowMultipleSelection={false} />
-                    <Form.TextField id="filename" title="Filename" placeholder="Enter name for file" />
-                    <Form.Separator />
-                  </Form>
+                      actions={
+                        <ActionPanel>
+                          <DownloadFile setLoading={setLoading} />
+                        </ActionPanel>
+                      }
+                    >
+                      <Form.Description text="Download a file from Walrus!" />
+                      <Form.TextField
+                        id="blobId" title="Blob ID" placeholder="Enter the Blob ID" defaultValue={u256ToBlobId(BigInt(selectedBlobObject?.data?.content?.fields?.blob_id || '0'))}
+                      />
+                      <Form.FilePicker title="Folder" canChooseFiles={false} canChooseDirectories={true} id="folder" allowMultipleSelection={false} />
+                      <Form.TextField id="filename" title="Filename" placeholder="Enter name for file" />
+                      <Form.Separator />
+                    </Form>
                   )}
                 </>}
               />

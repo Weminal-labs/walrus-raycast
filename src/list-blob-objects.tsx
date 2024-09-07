@@ -49,7 +49,7 @@ export default function Command() {
           id: 1,
           method: "suix_getOwnedObjects",
           params: [
-            "0xefc1c1949e8137cd00975832cb291bb230b2dcfec84424e5024bb8e449469dab",
+            "0xf1346af6127e9b1717f31a91df9ab26331731dcc7940a881aa2a3fd9e6df099d",
             {
               filter: {
                 MatchAll: [
@@ -75,8 +75,8 @@ export default function Command() {
           }
         });
         const blobObjects = response.data.result.data;
+        console.log("Objects loaded:", blobObjects);
         setBlobObjects(blobObjects);
-        console.log("Object loaded:", blobObjects[0].data);
       } catch (error) {
         console.error("Error loading objects:", error);
         await showToast({
@@ -99,14 +99,14 @@ export default function Command() {
       navigationTitle="Image Browser"
       searchBarPlaceholder="Search images..."
       onSearchTextChange={setSearchText}
-      onSelectionChange={(blob_id) => {
-        const selected = filteredBlobObjects.find(blob => blob.data.content.fields.blob_id === blob_id);
+      onSelectionChange={(blobObjectId) => {
+        const selected = filteredBlobObjects.find(blob => blob.data.content.fields.id.id === blobObjectId);
         setSelectedBlobObject(selected || null);
       }}
     >
       {filteredBlobObjects.map((blobObject: BlobObject) => (
         <List.Item
-          id={blobObject.data.content.fields.blob_id}
+          id={blobObject.data.content.fields.id.id}
           key={blobObject.data.content.fields.blob_id}
           title={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}
           icon={""}

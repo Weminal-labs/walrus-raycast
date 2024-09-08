@@ -117,18 +117,27 @@ export default function Command() {
       }
     }
     getBlobObjects();
-  }, [searchText])
+  }, []); // implement pagination later
 
-  const filteredBlobObjects = blobObjects.filter((blobObject: BlobObject) =>
+  const filteredBlobObjects = blobObjects.filter(async (blobObject: BlobObject) => {
     blobObject.data.content.fields.id.id.toLowerCase().includes(searchText.toLowerCase())
+  }
   );
 
   return (
     <List
       isShowingDetail
-      navigationTitle="Image Browser"
-      searchBarPlaceholder="Search images..."
-      onSearchTextChange={setSearchText}
+      navigationTitle="Blob Objects Browser"
+      searchBarPlaceholder="Search Blob Object by Sui Object ID"
+      onSearchTextChange={async (text) => {
+        // temp solution -> implement pagination later
+        setSearchText(text);
+        const selected = await getObjectDetails(text);
+        if (selected) {
+          setSelectedBlobObject(selected);
+          setBlobObjects([selected]);
+        }
+      }}
       onSelectionChange={async (blobObjectId) => {
         const selected = await getObjectDetails(blobObjectId as string);
         setSelectedBlobObject(selected);

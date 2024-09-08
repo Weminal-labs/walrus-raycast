@@ -2,8 +2,9 @@ import { Form, ActionPanel, Action, showToast, Toast, Icon, List } from "@raycas
 import axios from "axios";
 import fs from "fs";
 import { useState } from "react";
-import { AGGREGATOR } from "./constants";
 import path from "path";
+
+import { AGGREGATOR } from "./constants";
 
 interface DownloadFileProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -46,29 +47,28 @@ export function DownloadFile({ setLoading }: DownloadFileProps) {
       const filePath = path.join(values.folder[0], values.filename);
       const blobId = values.blobId;
       const response = await axios.get(`${AGGREGATOR}/v1/${blobId}`, {
-        responseType: 'stream',
+        responseType: 'arraybuffer',
       });
 
-      const writer = fs.createWriteStream(filePath);
-      response.data.pipe(writer);
+      const buffer = Buffer.from(response.data);
 
-      writer.on('finish', () => {
-        toast.style = Toast.Style.Success;
-        toast.title = "File Downloaded!";
-        toast.message = `File saved to ${filePath}`;
-        setLoading(false);
-      });
-
-      writer.on('error', (error) => {
-        toast.style = Toast.Style.Failure;
-        toast.title = "Failed Downloading File";
-        toast.message = String(error);
-        setLoading(false);
-        console.log(error);
+      fs.writeFile(filePath, buffer, (err) => {
+        if (err) {
+          toast.style = Toast.Style.Failure;
+          toast.title = "Failed Downloading File";
+          toast.message = String(err);
+          setLoading(false);
+          console.log(err);
+        } else {
+          toast.style = Toast.Style.Success;
+          toast.title = "File Downloaded!";
+          toast.message = `File saved to ${filePath}`;
+          setLoading(false);
+        }
       });
     } catch (error) {
       toast.style = Toast.Style.Failure;
-      toast.title = "Failed Uploading File";
+      toast.title = "Failed Downloading File";
       toast.message = String(error);
       setLoading(false);
       console.log(error);
@@ -79,10 +79,11 @@ export function DownloadFile({ setLoading }: DownloadFileProps) {
 
 interface CommandProps {
   blobId: string;
+  fileType: string;
 }
 
-export default function Command({ blobId = "" }: CommandProps) {
-  console.log("Blob ID:", blobId);
+export default function Command({ blobId = "", fileType }: CommandProps) {
+  const [blobIdValue, setBlobIdValue] = useState<string>(blobId);
   const [loading, setLoading] = useState<boolean>(false);
 
   return (
@@ -104,9 +105,13 @@ export default function Command({ blobId = "" }: CommandProps) {
         >
           <Form.Description text="Download a file from Walrus!" />
           <Form.TextField
-            id="blobId" title="Blob ID" placeholder="Enter the Blob ID" defaultValue={blobId} />
+            id="blobId" title="Blob ID" placeholder="Enter the Blob ID" value={blobIdValue} onChange={setBlobIdValue} />
           <Form.FilePicker title="Folder" canChooseFiles={false} canChooseDirectories={true} id="folder" allowMultipleSelection={false} />
-          <Form.TextField id="filename" title="Filename" placeholder="Enter name for file" />
+          <Form.TextField id="filename" title="Filename" placeholder="Enter filename with extension" />
+          <Form.Description
+            title="File Type"
+            text={fileType ? `${fileType.toLowerCase()}` : "No file type specified"}
+          />
           <Form.Separator />
         </Form>
       )}

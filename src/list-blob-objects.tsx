@@ -3,7 +3,8 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 
 import DownloadFileCommand from "./download-file"
-import { u256ToBlobId } from "./utils";
+import { getFileType, u256ToBlobId } from "./utils";
+import { AGGREGATOR } from "./constants";
 
 interface BlobObject {
   data: {
@@ -34,7 +35,8 @@ interface BlobObject {
         stored_epoch: string;
       }
     }
-  }
+  },
+  fileType?: string;
 }
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -65,7 +67,20 @@ export default function Command() {
           'Content-Type': 'application/json',
         }
       });
-      return response.data.result;
+
+      const result: BlobObject = response.data.result;
+
+      if (result?.data?.content?.fields?.blob_id) {
+        const fileResp = await axios.get(`${AGGREGATOR}/v1/${u256ToBlobId(BigInt(result?.data?.content?.fields?.blob_id))}`, {
+          responseType: 'arraybuffer',
+        });
+        const buffer = Buffer.from(fileResp.data);
+        const fileType = await getFileType(buffer);
+
+        return { ...response.data.result, fileType };
+      }
+
+      return { ...response.data.result, fileType: "UNKNOWN" };
     } catch (error) {
       console.error("Error fetching object details:", error);
       throw error;
@@ -105,7 +120,10 @@ export default function Command() {
             'Content-Type': 'application/json',
           }
         });
-        const blobObjects = response.data.result.data;
+        const blobObjects = response.data.result.data.map((blobObject: BlobObject) => ({
+          ...blobObject,
+          fileType: "UNKNOWN",
+        }));
         setBlobObjects(blobObjects);
       } catch (error) {
         console.error("Error loading objects:", error);
@@ -131,11 +149,26 @@ export default function Command() {
       searchBarPlaceholder="Search Blob Object by Sui Object ID"
       onSearchTextChange={async (text) => {
         // temp solution -> implement pagination later
+        const toast = await showToast({
+          style: Toast.Style.Animated,
+          title: "Loading...",
+        });
         setSearchText(text);
-        const selected = await getObjectDetails(text);
-        if (selected) {
-          setSelectedBlobObject(selected);
-          setBlobObjects([selected]);
+        try {
+          const selected = await getObjectDetails(text);
+          if (selected) {
+            setSelectedBlobObject(selected);
+            setBlobObjects([selected]);
+            toast.hide();
+          } else {
+            toast.style = Toast.Style.Failure;
+            toast.title = "No object found";
+          }
+        } catch (error) {
+          console.error("Error fetching object details:", error);
+          toast.style = Toast.Style.Failure;
+          toast.title = "Error fetching object details";
+          toast.message = "Please try again";
         }
       }}
       onSelectionChange={async (blobObjectId) => {
@@ -143,36 +176,40 @@ export default function Command() {
         setSelectedBlobObject(selected);
       }}
     >
-      {filteredBlobObjects.map((blobObject: BlobObject) => (
-        <List.Item
-          id={blobObject.data.content.fields.id.id}
-          key={blobObject.data.content.fields.id.id}
-          title={blobObject.data.content.fields.id.id}
-          icon={""}
-          detail={
-            <List.Item.Detail
-              markdown={`![${u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}]()`}
-              metadata={
-                <List.Item.Detail.Metadata>
-                  <List.Item.Detail.Metadata.Label title="Sui Object ID" text={blobObject.data.content.fields.id.id} />
-                  <List.Item.Detail.Metadata.Label title="Blob ID" text={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))} />
-                  <List.Item.Detail.Metadata.Label title="Certified epoch" text={blobObject.data.content.fields.certified_epoch} />
-                  <List.Item.Detail.Metadata.Label title="Size" text={blobObject.data.content.fields.size} />
-                  <List.Item.Detail.Metadata.Label title="Stored Epoch" text={blobObject.data.content.fields.stored_epoch} />
-                </List.Item.Detail.Metadata>
-              }
-            />
-          }
-          actions={
-            <ActionPanel>
-              <Action.Push
-                title="Download"
-                target={<DownloadFileCommand blobId={u256ToBlobId(BigInt(selectedBlobObject?.data?.content?.fields?.blob_id || '0'))} />}
+      {filteredBlobObjects.map((blobObject: BlobObject) => {
+        return (
+          <List.Item
+            id={blobObject.data.content.fields.id.id}
+            key={blobObject.data.content.fields.id.id}
+            title={blobObject.data.content.fields.id.id}
+            icon=""
+            detail={
+              <List.Item.Detail
+                markdown={`![${u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}]()`}
+                metadata={
+                  <List.Item.Detail.Metadata>
+                    <List.Item.Detail.Metadata.Label title="Sui Object ID" text={blobObject.data.content.fields.id.id} />
+                    <List.Item.Detail.Metadata.Label title="Blob ID" text={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))} />
+                    <List.Item.Detail.Metadata.Label title="File type" text={blobObject?.fileType} />
+                    <List.Item.Detail.Metadata.Label title="Size" text={blobObject.data.content.fields.size} />
+                    <List.Item.Detail.Metadata.Label title="Certified epoch" text={blobObject.data.content.fields.certified_epoch} />
+                    <List.Item.Detail.Metadata.Label title="Stored Epoch" text={blobObject.data.content.fields.stored_epoch} />
+                  </List.Item.Detail.Metadata>
+                }
               />
-            </ActionPanel>
-          }
-        />
-      ))}
+            }
+            actions={
+              <ActionPanel>
+                <Action.Push
+                  title="Download"
+                  target={<DownloadFileCommand fileType={selectedBlobObject?.fileType as string} blobId={u256ToBlobId(BigInt(selectedBlobObject?.data?.content?.fields?.blob_id || '0'))} />}
+                />
+              </ActionPanel>
+            }
+          />
+        )
+      }
+      )}
       <List.EmptyView title="No images found" />
     </List>
   );

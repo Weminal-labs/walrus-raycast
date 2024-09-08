@@ -17,4 +17,25 @@ function u256ToBlobId(u256Value: bigint): string {
     return blobId;
 }
 
-export { u256ToBlobId };
+async function getFileType(buffer: ArrayBuffer): Promise<string> {
+    const uint8Array = new Uint8Array(buffer);
+    const signature = uint8Array.slice(0, 8);
+    const hex = Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join('');
+
+    switch (hex) {
+        case '89504e470d0a1a0a':
+            return 'PNG';
+        case 'ffd8ffe000104a46':
+        case 'ffd8ffe1':
+            return 'JPEG';
+        case '47494638':
+            return 'GIF';
+        case '25504446':
+            return 'PDF';
+        // Add more file signatures as needed
+        default:
+            return 'Unknown';
+    }
+}
+
+export { u256ToBlobId, getFileType };

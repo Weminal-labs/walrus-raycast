@@ -1,7 +1,8 @@
-import { List, ActionPanel, Action, showToast, Toast, Form } from "@raycast/api";
+import { List, ActionPanel, Action, showToast, Toast } from "@raycast/api";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { DownloadFile } from "./download-file";
+
+import DownloadFileCommand from "./download-file"
 import { u256ToBlobId } from "./utils";
 
 interface BlobObject {
@@ -39,7 +40,37 @@ export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [blobObjects, setBlobObjects] = useState<BlobObject[]>([]);
   const [selectedBlobObject, setSelectedBlobObject] = useState<BlobObject | null>(null);
-  const [loading, setLoading] = useState(false);
+
+  async function getObjectDetails(objectId: string) {
+    try {
+      console.log("Fetching object details for:", objectId);
+      const response = await axios.post('https://fullnode.testnet.sui.io:443', {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "sui_getObject",
+        params: [
+          objectId,
+          {
+            showType: false,
+            showOwner: false,
+            showPreviousTransaction: false,
+            showDisplay: false,
+            showContent: true,
+            showBcs: false,
+            showStorageRebate: false
+          }
+        ]
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      return response.data.result;
+    } catch (error) {
+      console.error("Error fetching object details:", error);
+      throw error;
+    }
+  }
 
   useEffect(() => {
     async function getBlobObjects() {
@@ -75,7 +106,6 @@ export default function Command() {
           }
         });
         const blobObjects = response.data.result.data;
-        console.log("Objects loaded:", blobObjects);
         setBlobObjects(blobObjects);
       } catch (error) {
         console.error("Error loading objects:", error);
@@ -87,10 +117,10 @@ export default function Command() {
       }
     }
     getBlobObjects();
-  }, [])
+  }, [searchText])
 
   const filteredBlobObjects = blobObjects.filter((blobObject: BlobObject) =>
-    u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id)).toLowerCase().includes(searchText.toLowerCase())
+    blobObject.data.content.fields.id.id.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (
@@ -99,16 +129,16 @@ export default function Command() {
       navigationTitle="Image Browser"
       searchBarPlaceholder="Search images..."
       onSearchTextChange={setSearchText}
-      onSelectionChange={(blobObjectId) => {
-        const selected = filteredBlobObjects.find(blob => blob.data.content.fields.id.id === blobObjectId);
-        setSelectedBlobObject(selected || null);
+      onSelectionChange={async (blobObjectId) => {
+        const selected = await getObjectDetails(blobObjectId as string);
+        setSelectedBlobObject(selected);
       }}
     >
       {filteredBlobObjects.map((blobObject: BlobObject) => (
         <List.Item
           id={blobObject.data.content.fields.id.id}
-          key={blobObject.data.content.fields.blob_id}
-          title={u256ToBlobId(BigInt(blobObject.data.content.fields.blob_id))}
+          key={blobObject.data.content.fields.id.id}
+          title={blobObject.data.content.fields.id.id}
           icon={""}
           detail={
             <List.Item.Detail
@@ -128,32 +158,7 @@ export default function Command() {
             <ActionPanel>
               <Action.Push
                 title="Download"
-                target={<>
-                  <List>
-                    <List.EmptyView
-                      // icon={{ source: "" }}
-                      title="Downloading Your File"
-                      description="This could take a while depending on your file size and internet connection"
-                    />
-                  </List>
-                  {!loading && (
-                    <Form
-                      actions={
-                        <ActionPanel>
-                          <DownloadFile setLoading={setLoading} />
-                        </ActionPanel>
-                      }
-                    >
-                      <Form.Description text="Download a file from Walrus!" />
-                      <Form.TextField
-                        id="blobId" title="Blob ID" placeholder="Enter the Blob ID" defaultValue={u256ToBlobId(BigInt(selectedBlobObject?.data?.content?.fields?.blob_id || '0'))}
-                      />
-                      <Form.FilePicker title="Folder" canChooseFiles={false} canChooseDirectories={true} id="folder" allowMultipleSelection={false} />
-                      <Form.TextField id="filename" title="Filename" placeholder="Enter name for file" />
-                      <Form.Separator />
-                    </Form>
-                  )}
-                </>}
+                target={<DownloadFileCommand blobId={u256ToBlobId(BigInt(selectedBlobObject?.data?.content?.fields?.blob_id || '0'))} />}
               />
             </ActionPanel>
           }

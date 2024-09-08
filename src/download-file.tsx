@@ -77,7 +77,12 @@ export function DownloadFile({ setLoading }: DownloadFileProps) {
   return <Action.SubmitForm title="Download File" onSubmit={handleSubmit} icon={Icon.Download} />;
 }
 
-export default function Command() {
+interface CommandProps {
+  blobId: string;
+}
+
+export default function Command({ blobId = "" }: CommandProps) {
+  console.log("Blob ID:", blobId);
   const [loading, setLoading] = useState<boolean>(false);
 
   return (
@@ -99,7 +104,7 @@ export default function Command() {
         >
           <Form.Description text="Download a file from Walrus!" />
           <Form.TextField
-            id="blobId" title="Blob ID" placeholder="Enter the Blob ID" />
+            id="blobId" title="Blob ID" placeholder="Enter the Blob ID" defaultValue={blobId} />
           <Form.FilePicker title="Folder" canChooseFiles={false} canChooseDirectories={true} id="folder" allowMultipleSelection={false} />
           <Form.TextField id="filename" title="Filename" placeholder="Enter name for file" />
           <Form.Separator />

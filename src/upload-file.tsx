@@ -1,18 +1,44 @@
 import { ActionPanel, Form, Action, showToast, Toast, Detail } from "@raycast/api";
 import axios from "axios";
 import fs from "fs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PUBLISHER } from "./constants";
 
 interface UploadFileProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setUploadedData: React.Dispatch<React.SetStateAction<any | null>>;
+  setUploadedData: React.Dispatch<React.SetStateAction<UploadedData | null>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-function UploadFile({ setLoading, setUploadedData, setError }: UploadFileProps) {
-  const [isUploading, setIsUploading] = useState(false);
+interface AlreadyCertified {
+  blobId: string;
+  event: {
+    txDigest: string;
+    eventSeq: string;
+  };
+  endEpoch: number;
+}
 
+interface NewlyCreated {
+  blobObject: {
+    id: string;
+    storedEpoch: number;
+    blobId: string;
+    size: number;
+    erasureCodeType: string;
+    certifiedEpoch: number;
+    storage: object; // You might want to define a more specific type for this
+  };
+  encodedSize: number;
+  cost: number;
+}
+
+interface UploadedData {
+  alreadyCertified?: AlreadyCertified;
+  newlyCreated?: NewlyCreated;
+}
+
+function UploadFile({ setLoading, setUploadedData, setError }: UploadFileProps) {
   async function handleSubmit(values: { file: string[] }) {
     if (!values.file[0]) {
       showToast({
@@ -22,14 +48,13 @@ function UploadFile({ setLoading, setUploadedData, setError }: UploadFileProps) 
       return;
     }
 
-    setIsUploading(true);
     setLoading(true);
     const toast = await showToast({ style: Toast.Style.Animated, title: "Uploading File..." });
 
     try {
       const file = fs.createReadStream(values.file[0]);
       const res = await axios.put(`${PUBLISHER}/v1/store`, file, {
-        headers: { 'Content-Type': 'application/octet-stream' }
+        headers: { "Content-Type": "application/octet-stream" },
       });
 
       setUploadedData(res.data);
@@ -41,7 +66,6 @@ function UploadFile({ setLoading, setUploadedData, setError }: UploadFileProps) 
       toast.style = Toast.Style.Failure;
       toast.title = "Failed to Upload File";
     } finally {
-      setIsUploading(false);
       setLoading(false);
     }
   }
@@ -55,10 +79,20 @@ function UploadFile({ setLoading, setUploadedData, setError }: UploadFileProps) 
 
 export default function Command() {
   const [loading, setLoading] = useState(false);
-  const [uploadedData, setUploadedData] = useState<any | null>(null);
+  const [uploadedData, setUploadedData] = useState<UploadedData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [formattedMarkdown, setFormattedMarkdown] = useState<string>("");
 
-  const formatUploadedData = (data: any): string => {
+  useEffect(() => {
+    if (uploadedData) {
+      (async () => {
+        const markdown = await formatUploadedData(uploadedData);
+        setFormattedMarkdown(markdown);
+      })();
+    }
+  }, [uploadedData]);
+
+  const formatUploadedData = async (data: UploadedData) => {
     let markdown = "";
 
     if (data.newlyCreated && data.newlyCreated.blobObject) {
@@ -72,11 +106,48 @@ export default function Command() {
     } else if (data.alreadyCertified && data.alreadyCertified.event) {
       const { blobId } = data.alreadyCertified;
       const { txDigest, eventSeq } = data.alreadyCertified.event;
+      let blobObjectId = "";
+      try {
+        const response = await axios.post(
+          "https://fullnode.testnet.sui.io:443",
+          {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "sui_getTransactionBlock",
+            params: [
+              txDigest,
+              {
+                showInput: true,
+                showRawInput: false,
+                showEffects: true,
+                showEvents: true,
+                showObjectChanges: false,
+                showBalanceChanges: false,
+                showRawEffects: false,
+              },
+            ],
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        blobObjectId = response.data.result.effects.modifiedAtVersions[2].objectId; // becareful with the index of the blob object may change
+      } catch (error) {
+        console.error("Error loading objects:", error);
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Error loading objects",
+          message: "Please try again later",
+        });
+      }
       markdown += `
 ## Already Certified
 - Blob ID: ${blobId}
 - Transaction Digest: ${txDigest}
 - Event Sequence: ${eventSeq}
+- Blob Object ID: ${blobObjectId}
       `;
     } else {
       markdown = "# No data available";
@@ -90,7 +161,7 @@ export default function Command() {
   }
 
   if (uploadedData) {
-    return <Detail markdown={formatUploadedData(uploadedData)} />;
+    return <Detail markdown={formattedMarkdown} />;
   }
 
   if (error) {
@@ -98,15 +169,7 @@ export default function Command() {
   }
 
   return (
-    <Form
-      actions={
-        <UploadFile
-          setLoading={setLoading}
-          setUploadedData={setUploadedData}
-          setError={setError}
-        />
-      }
-    >
+    <Form actions={<UploadFile setLoading={setLoading} setUploadedData={setUploadedData} setError={setError} />}>
       <Form.Description text="Upload a file to Walrus!" />
       <Form.FilePicker id="file" />
     </Form>
